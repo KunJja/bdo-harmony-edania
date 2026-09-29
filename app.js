@@ -1,3 +1,12 @@
+function getEffectiveYield(mastery, includeBlue) {
+  const baseYield = getYieldFromMastery(mastery);
+  if (mastery === -1 || !includeBlue) {
+    return baseYield;
+  }
+  // Blue Elixir proc rate is approx 0.30 per craft. In Draughts, 1 Blue = 3 Green (adds +0.90 equivalent)
+  return baseYield + 0.90;
+}
+
 // BDO Alchemy Mastery Table (from BDO Codex / Incendar)
 const MASTERY_TABLE = [
   [0, 2.50],
@@ -274,6 +283,7 @@ const state = {
   hasVP: true,
   hasRing: false,
   mastery: 1000,
+  includeBlueProc: false,
   alchemyYield: 2.83,
   inventory: {},        // { [itemId]: count }
   marketPrices: {},     // { [itemId]: { basePrice, currentStock, lastSoldPrice, ... } }
@@ -366,7 +376,7 @@ function loadPersistedState() {
       if (typeof parsed.hasRing === 'boolean') state.hasRing = parsed.hasRing;
       if (parsed.mastery !== undefined) {
         state.mastery = Number(parsed.mastery);
-        state.alchemyYield = getYieldFromMastery(state.mastery);
+        state.alchemyYield = getEffectiveYield(state.mastery, state.includeBlueProc);
       } else if (parsed.alchemyYield) {
         state.alchemyYield = Number(parsed.alchemyYield) || 2.83;
       }
@@ -391,6 +401,7 @@ function saveSettings() {
       batchCount: state.batchCount,
       hasVP: state.hasVP,
       hasRing: state.hasRing,
+      includeBlueProc: state.includeBlueProc,
       mastery: state.mastery,
       alchemyYield: state.alchemyYield
     };
@@ -743,6 +754,9 @@ function renderDashboard(metrics) {
   if (yieldDisplay) {
     if (state.mastery === -1) {
       yieldDisplay.innerText = 'สูตร 1:1 (ไม่มี Proc)';
+    } else if (state.includeBlueProc) {
+      const base = getYieldFromMastery(state.mastery);
+      yieldDisplay.innerText = `ผลผลิตรวม ${state.alchemyYield.toFixed(2)}x (เขียว ${base.toFixed(2)}x + ฟ้า 0.30x)`;
     } else {
       yieldDisplay.innerText = `เฉลี่ย ${state.alchemyYield.toFixed(2)}x (${(metrics.masterySavedPct * 100).toFixed(0)}% เซฟวัตถุดิบ)`;
     }
@@ -1158,12 +1172,25 @@ function setupEvents() {
   });
 
   const switchRing = document.getElementById('switch-ring');
-  switchRing.checked = state.hasRing;
-  switchRing.addEventListener('change', (e) => {
-    state.hasRing = e.target.checked;
-    saveSettings();
-    recalculateAndRender();
-  });
+  if (switchRing) {
+    switchRing.checked = state.hasRing;
+    switchRing.addEventListener('change', (e) => {
+      state.hasRing = e.target.checked;
+      saveSettings();
+      recalculateAndRender();
+    });
+  }
+
+  const switchBlueProc = document.getElementById('switch-blue-proc');
+  if (switchBlueProc) {
+    switchBlueProc.checked = state.includeBlueProc;
+    switchBlueProc.addEventListener('change', (e) => {
+      state.includeBlueProc = e.target.checked;
+      state.alchemyYield = getEffectiveYield(state.mastery, state.includeBlueProc);
+      saveSettings();
+      recalculateAndRender();
+    });
+  }
 
   // Mastery Input & Presets
   const masteryInput = document.getElementById('mastery-input');
@@ -1171,7 +1198,7 @@ function setupEvents() {
   
   function applyMastery(val) {
     state.mastery = val;
-    state.alchemyYield = getYieldFromMastery(val);
+    state.alchemyYield = getEffectiveYield(val, state.includeBlueProc);
     saveSettings();
     
     // Update preset active classes
