@@ -936,6 +936,60 @@ function renderRawTable(metrics) {
 
 // Render Intermediate Table
 function renderIntermediateTable(metrics) {
+  // Update Elixir Yield & Blue Proc Simulator Card
+  const targetPerElixir = 30 * state.batchCount;
+  const m = Math.max(0, Math.min(2000, state.mastery === -1 ? 0 : state.mastery));
+  const baseGreen = state.mastery === -1 ? 1.0 : getYieldFromMastery(state.mastery);
+  const blueRate = state.mastery === -1 ? 0.0 : (0.25 + (m / 2000) * 0.10); // ~0.30 at 1000
+  
+  let craftsNeeded = 0;
+  let expGreen = 0;
+  let expBlue = 0;
+
+  if (state.includeBlueProc && state.mastery !== -1) {
+    const effYield = baseGreen + (blueRate * 3);
+    craftsNeeded = Math.ceil(targetPerElixir / effYield);
+    expGreen = Math.round(craftsNeeded * baseGreen);
+    expBlue = Math.round(craftsNeeded * blueRate);
+  } else {
+    craftsNeeded = Math.ceil(targetPerElixir / baseGreen);
+    expGreen = Math.round(craftsNeeded * baseGreen);
+    expBlue = state.mastery === -1 ? 0 : Math.round(craftsNeeded * blueRate);
+  }
+
+  const blueEquiv = expBlue * 3;
+  const savePct = targetPerElixir > 0 ? ((1 - (craftsNeeded / targetPerElixir)) * 100).toFixed(1) : '0';
+
+  const simBatchLabel = document.getElementById('sim-batch-label');
+  if (simBatchLabel) simBatchLabel.innerText = `${state.batchCount} ชุด (เป้าหมาย ${formatNumber(targetPerElixir)} ขวด/ชนิด)`;
+  
+  const simTarget = document.getElementById('sim-target-per-elixir');
+  if (simTarget) simTarget.innerText = `${formatNumber(targetPerElixir)} ขวด`;
+
+  const simCrafts = document.getElementById('sim-crafts-needed');
+  if (simCrafts) simCrafts.innerText = `~${formatNumber(craftsNeeded)} รอบ`;
+
+  const simGreen = document.getElementById('sim-green-count');
+  if (simGreen) simGreen.innerText = `~${formatNumber(expGreen)} ขวด`;
+
+  const simBlue = document.getElementById('sim-blue-count');
+  if (simBlue) simBlue.innerText = `~${formatNumber(expBlue)} ขวด`;
+
+  const simBlueInline = document.getElementById('sim-blue-inline');
+  if (simBlueInline) simBlueInline.innerText = formatNumber(expBlue);
+
+  const simBlueEquiv = document.getElementById('sim-blue-equiv');
+  if (simBlueEquiv) simBlueEquiv.innerText = formatNumber(blueEquiv);
+
+  const simGreenInline = document.getElementById('sim-green-inline');
+  if (simGreenInline) simGreenInline.innerText = formatNumber(expGreen);
+
+  const simTotalEquiv = document.getElementById('sim-total-equiv');
+  if (simTotalEquiv) simTotalEquiv.innerText = formatNumber(expGreen + blueEquiv);
+
+  const simSavePct = document.getElementById('sim-save-pct');
+  if (simSavePct) simSavePct.innerText = `${savePct}%`;
+
   const tbody = document.getElementById('intermediate-table-body');
   const items = [
     // Harmony Draught

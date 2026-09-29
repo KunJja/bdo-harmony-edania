@@ -363,6 +363,37 @@
 
     <!-- TAB 2: Intermediate Items Table -->
     <section id="tab-intermediate" class="tab-content">
+      <!-- Elixir Yield & Blue Proc Simulator Card -->
+      <div class="kpi-card" style="margin-bottom: 20px; border-left: 3px solid var(--purple-magic); background: linear-gradient(180deg, #1e1b2e 0%, #151422 100%);">
+        <div class="card-header">
+          <span class="card-title text-gold" style="font-size: 1rem;">🧪 จำลองผลผลิต Elixir แต่ละชนิด (ยาเขียว vs ยาฟ้า Proc 1:3)</span>
+          <span class="badge badge-purple" id="sim-batch-label">100 ชุด (เป้าหมาย 3,000 ขวด/ชนิด)</span>
+        </div>
+        <div class="card-body">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 12px;">
+            <div class="rec-item" style="border-left-color: var(--gold-bright);">
+              <span>🎯 ต้องใช้ต่อ 1 ชนิดยา:</span>
+              <strong id="sim-target-per-elixir" class="num-val text-gold">3,000 ขวด</strong>
+            </div>
+            <div class="rec-item" style="border-left-color: var(--blue-mana);">
+              <span>⚡ จำนวนรอบที่ต้องกดปรุงจริง:</span>
+              <strong id="sim-crafts-needed" class="num-val text-green">~804 รอบ</strong>
+            </div>
+            <div class="rec-item" style="border-left-color: var(--green-emerald);">
+              <span>🟢 ประมาณการได้ยาเขียว:</span>
+              <strong id="sim-green-count" class="num-val text-green">~2,276 ขวด</strong>
+            </div>
+            <div class="rec-item" style="border-left-color: var(--purple-magic);">
+              <span>🔵 ประมาณการได้ยาฟ้า:</span>
+              <strong id="sim-blue-count" class="num-val" style="color: #a78bfa;">~241 ขวด</strong>
+            </div>
+          </div>
+          <div class="info-note" style="background: rgba(139, 92, 246, 0.1); border-left-color: #a78bfa; font-size: 0.85rem;">
+            💡 <strong>การทดแทนในสูตร Draught:</strong> ยาฟ้า <span id="sim-blue-inline" class="text-gold">241</span> ขวด ใช้แทนยาเขียวได้ถึง <span id="sim-blue-equiv" class="text-green text-bold">723</span> ขวด (อัตรา 1:3) เมื่อรวมกับยาเขียว <span id="sim-green-inline" class="text-gold">2,276</span> ขวด จะได้ครบตามเป้าหมาย <span id="sim-total-equiv" class="text-gold text-bold">3,000</span> ขวดพอดี โดยประหยัดรอบการกดปรุงและวัตถุดิบลงไปได้ถึง <strong id="sim-save-pct" class="text-green">73.2%</strong> เมื่อเทียบกับสูตร 1:1!
+          </div>
+        </div>
+      </div>
+
       <div class="section-intro">
         <h3>วิเคราะห์เปรียบเทียบ: คราฟต์เอง vs ซื้อของกึ่งสำเร็จรูปในตลาด</h3>
         <p>ตรวจสอบราคาตลาดของน้ำยา (Elixir) และน้ำยาเสริมกำลัง (Draught) เทียบกับต้นทุนวัตถุดิบดิบที่ใช้ เพื่อเลือกว่าชิ้นไหนควรคราฟต์เอง และชิ้นไหนซื้อตลาดคุ้มกว่า</p>
