@@ -401,6 +401,21 @@ function saveSettings() {
 }
 
 // API Price Fetching via Proxy
+// Fast Fetch Helper with Timeout
+async function fetchWithTimeout(url, timeoutMs = 4000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
+// Blazing-fast Single-Batch API Price Fetching
 async function fetchPrices(forceRefresh = false) {
   const statusDot = document.getElementById('api-status-dot');
   const statusText = document.getElementById('api-status-text');
@@ -417,9 +432,9 @@ async function fetchPrices(forceRefresh = false) {
           state.marketPrices = data;
           state.priceCacheTimestamp = timestamp;
           updateCacheTimer();
-          statusDot.className = 'status-dot green';
-          statusText.innerText = `ราคาตลาด: แคช (${state.region.toUpperCase()}) อัปเดต ${new Date(timestamp).toLocaleTimeString()}`;
-          errorBanner.style.display = 'none';
+          if (statusDot) statusDot.className = 'status-dot green';
+          if (statusText) statusText.innerText = `ราคาตลาด: แคช (${state.region.toUpperCase()}) อัปเดต ${new Date(timestamp).toLocaleTimeString()}`;
+          if (errorBanner) errorBanner.style.display = 'none';
           recalculateAndRender();
           return;
         }
@@ -429,126 +444,116 @@ async function fetchPrices(forceRefresh = false) {
     }
   }
 
-  statusDot.className = 'status-dot yellow';
-  statusText.innerText = `กำลังดึงราคาจากตลาด (${state.region.toUpperCase()})...`;
+  if (statusDot) statusDot.className = 'status-dot yellow';
+  if (statusText) statusText.innerText = `กำลังดึงราคาจากตลาด (${state.region.toUpperCase()})...`;
 
-  // Collect all unique IDs needed
+  // Collect all 89 IDs in one single request (only 469 chars URL length!)
   const allIds = Object.keys(ITEMS_DB).map(Number);
-  
-  // Split into chunks of 40 IDs to avoid long URLs
-  const chunkSize = 40;
-  const chunks = [];
-  for (let i = 0; i < allIds.length; i += chunkSize) {
-    chunks.push(allIds.slice(i, i + chunkSize));
+  const idParam = allIds.join(',');
+
+  const arshaTarget = `https://api.arsha.io/v2/${state.region}/item?id=${idParam}&lang=en`;
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Candidate URLs to try in order of speed
+  let candidateUrls = [];
+  if (isLocalhost) {
+    candidateUrls = [
+      `/api/market?region=${encodeURIComponent(state.region)}&id=${encodeURIComponent(idParam)}&lang=en`
+    ];
+  } else {
+    // For GitHub Pages & Web: try direct first, then reliable CORS proxies
+    candidateUrls = [
+      arshaTarget, // Direct fetch (super fast if allowed)
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(arshaTarget)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(arshaTarget)}`,
+      `https://corsproxy.io/?url=${encodeURIComponent(arshaTarget)}`
+    ];
   }
 
-  const fetchedPrices = { ...state.marketPrices };
-  let fetchFailed = false;
-  let errorMsg = '';
+  let fetchedData = null;
+  let lastError = null;
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const idParam = chunk.join(',');
-        // Dual-mode API Endpoint (Works on GitHub Pages & Localhost)
-    const arshaTarget = `https://api.arsha.io/v2/${state.region}/item?id=${idParam}&lang=en`;
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    // Primary URL
-    let url = isLocalhost 
-      ? `/api/market?region=${encodeURIComponent(state.region)}&id=${encodeURIComponent(idParam)}&lang=en`
-      : `https://corsproxy.io/?url=${encodeURIComponent(arshaTarget)}`;
-
-    if (i > 0) {
-      await new Promise(r => setTimeout(r, 150)); // Gentle throttle between batches
-    }
-
-    let chunkSuccess = false;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        let resp = await fetch(url);
-        // Fallback for GitHub Pages if primary proxy is unavailable
-        if (!resp.ok && !isLocalhost) {
-          const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(arshaTarget)}`;
-          resp = await fetch(fallbackUrl);
-        }
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  for (const url of candidateUrls) {
+    try {
+      const resp = await fetchWithTimeout(url, 3500);
+      if (resp && resp.ok) {
         const data = await resp.json();
-        if (Array.isArray(data)) {
-          data.forEach(item => {
-            if (item && item.id) {
-              fetchedPrices[item.id] = {
-                name: item.name,
-                id: item.id,
-                basePrice: Number(item.basePrice) || 0,
-                currentStock: Number(item.currentStock) || 0,
-                totalTrades: Number(item.totalTrades) || 0,
-                lastSoldPrice: Number(item.lastSoldPrice) || Number(item.basePrice) || 0,
-                priceMin: Number(item.priceMin) || 0,
-                priceMax: Number(item.priceMax) || 0
-              };
-            }
-          });
-          chunkSuccess = true;
+        if (Array.isArray(data) && data.length > 0) {
+          fetchedData = data;
           break;
         }
-      } catch (err) {
-        if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 300 * attempt));
-        } else {
-          console.error(`Fetch chunk ${i+1} failed after 3 attempts:`, err);
-          fetchFailed = true;
-          errorMsg = err.message;
-        }
       }
+    } catch (err) {
+      lastError = err;
+      // Continue to next candidate URL without long hanging
     }
   }
 
-  // Fallback defaults for missing items
-  allIds.forEach(id => {
-    if (!fetchedPrices[id] || fetchedPrices[id].basePrice <= 0) {
-      const def = ITEMS_DB[id];
-      fetchedPrices[id] = {
-        name: def.name_en,
-        id: id,
-        basePrice: def.vendor_price || def.default_price || 10000,
-        currentStock: 100,
-        totalTrades: 5000,
-        lastSoldPrice: def.vendor_price || def.default_price || 10000,
-        priceMin: 0,
-        priceMax: 0
-      };
+  const newPrices = { ...state.marketPrices };
+
+  if (fetchedData && Array.isArray(fetchedData)) {
+    fetchedData.forEach(item => {
+      if (item && item.id) {
+        newPrices[item.id] = {
+          name: item.name,
+          id: item.id,
+          basePrice: Number(item.basePrice) || 0,
+          currentStock: Number(item.currentStock) || 0,
+          totalTrades: Number(item.totalTrades) || 0,
+          lastSoldPrice: Number(item.lastSoldPrice) || Number(item.basePrice) || 0,
+          priceMin: Number(item.priceMin) || 0,
+          priceMax: Number(item.priceMax) || 0
+        };
+      }
+    });
+
+    state.marketPrices = newPrices;
+    state.priceCacheTimestamp = Date.now();
+
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        timestamp: state.priceCacheTimestamp,
+        data: state.marketPrices
+      }));
+    } catch (e) {
+      console.warn('Cache write error:', e);
     }
-  });
 
-  state.marketPrices = fetchedPrices;
-  state.priceCacheTimestamp = Date.now();
-
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify({
-      timestamp: state.priceCacheTimestamp,
-      data: state.marketPrices
-    }));
-  } catch (e) {
-    console.warn('Cache write error:', e);
-  }
-
-  if (fetchFailed) {
-    statusDot.className = 'status-dot red';
-    statusText.innerText = `ดึงราคาบางส่วนไม่สำเร็จ (ใช้ราคาอ้างอิง)`;
-    errorBanner.style.display = 'flex';
-    document.getElementById('error-title').innerText = 'ไม่สามารถเชื่อมต่อ Arsha API ได้ครบถ้วน';
-    document.getElementById('error-desc').innerText = `ระบบใช้ราคาอ้างอิงหรือแคชที่มีอยู่เพื่อคำนวณต่อ (${errorMsg})`;
+    if (statusDot) statusDot.className = 'status-dot green';
+    if (statusText) statusText.innerText = `ราคาตลาด: สดใหม่ (${state.region.toUpperCase()}) ${new Date().toLocaleTimeString()}`;
+    if (errorBanner) errorBanner.style.display = 'none';
   } else {
-    statusDot.className = 'status-dot green';
-    statusText.innerText = `ราคาตลาด: สดใหม่ (${state.region.toUpperCase()}) ${new Date().toLocaleTimeString()}`;
-    errorBanner.style.display = 'none';
+    // If all network attempts failed, ensure all items have sensible defaults so app is 100% usable
+    allIds.forEach(id => {
+      if (!newPrices[id] || newPrices[id].basePrice <= 0) {
+        const def = ITEMS_DB[id];
+        newPrices[id] = {
+          name: def.name_en,
+          id: id,
+          basePrice: def.vendor_price || def.default_price || 10000,
+          currentStock: 100,
+          totalTrades: 5000,
+          lastSoldPrice: def.vendor_price || def.default_price || 10000,
+          priceMin: 0,
+          priceMax: 0
+        };
+      }
+    });
+    state.marketPrices = newPrices;
+
+    if (statusDot) statusDot.className = 'status-dot yellow';
+    if (statusText) statusText.innerText = `ราคาตลาด: ใช้ราคาอ้างอิงล่าสุด (${state.region.toUpperCase()})`;
+    if (errorBanner) {
+      errorBanner.style.display = 'flex';
+      document.getElementById('error-title').innerText = 'ไม่สามารถดึงราคาแบบเรียลไทม์ได้ชั่วคราว';
+      document.getElementById('error-desc').innerText = 'ระบบใช้ราคามาตรฐานของตลาด SEA เพื่อให้คุณคำนวณต้นทุนต่อได้ทันที';
+    }
   }
 
   updateCacheTimer();
   recalculateAndRender();
 }
 
-// Update cache timer display
 function updateCacheTimer() {
   const timerElem = document.getElementById('api-cache-timer');
   if (!timerElem || !state.priceCacheTimestamp) return;
@@ -1375,5 +1380,8 @@ function setupEvents() {
 window.addEventListener('DOMContentLoaded', () => {
   loadPersistedState();
   setupEvents();
+  // 1. Render immediately with cached/default prices so user sees dashboard in 0ms!
+  recalculateAndRender();
+  // 2. Fetch live prices in background to update
   fetchPrices(false);
 });
