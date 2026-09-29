@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เครื่องคำนวณต้นทุน [Party] Harmony Draught - Edania | Black Desert Online</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-main">
+        <div class="logo-area">
+          <div class="draught-gem"></div>
+          <div>
+            <h1 class="app-title">[Party] Harmony Draught - Edania</h1>
+            <div class="app-subtitle">[ปาร์ตี้] น้ำยาอีดาเนียแห่งความกลมกลืน • คำนวณต้นทุนคราฟต์ BDO แบบเจาะลึก</div>
+          </div>
+        </div>
+        <div class="header-meta">
+          <div class="meta-tag server-tag"><span class="pulse-dot"></span> <span id="display-region">SEA Server</span></div>
+          <div class="meta-tag version-tag">Item ID: 1407</div>
+        </div>
+      </div>
+
+      <!-- Settings & Controls Bar -->
+      <div class="control-panel">
+        <div class="control-group">
+          <label for="region-select">ภูมิภาค (Region):</label>
+          <select id="region-select" class="form-select">
+            <option value="sea" selected>SEA (ไทย / เอเชียตะวันออกเฉียงใต้)</option>
+            <option value="na">NA (อเมริกาเหนือ)</option>
+            <option value="eu">EU (ยุโรป)</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="batch-count">จำนวนชุดที่คราฟต์:</label>
+          <div class="number-input-group">
+            <button type="button" class="btn-step" id="btn-batch-dec">−</button>
+            <input type="number" id="batch-count" class="form-input text-center" min="1" max="10000" value="1">
+            <button type="button" class="btn-step" id="btn-batch-inc">+</button>
+          </div>
+          <span class="batch-yield-badge" id="batch-yield-text">ออก 10 ขวด</span>
+        </div>
+
+        <div class="control-group switches-group">
+          <label class="switch-container" title="เพิ่มเงินที่ได้จากการขายในตลาด 30%">
+            <input type="checkbox" id="switch-vp" checked>
+            <span class="switch-slider"></span>
+            <span class="switch-label">Value Pack (+30%)</span>
+          </label>
+
+          <label class="switch-container" title="บัฟครอบครัวถาวร แหวนพ่อค้ามหาเศรษฐี +5% Market Silver">
+            <input type="checkbox" id="switch-ring">
+            <span class="switch-slider"></span>
+            <span class="switch-label">แหวนพ่อค้า (Merchant Ring +5%)</span>
+          </label>
+        </div>
+
+        <div class="control-group mastery-control-group">
+          <div class="mastery-label-row">
+            <label for="mastery-input" title="ค่าความชำนาญแปรธาตุส่งผลโดยตรงต่อจำนวนผลผลิตเฉลี่ยต่อการปรุง 1 ครั้ง">ความชำนาญแปรธาตุ (Mastery):</label>
+            <button type="button" class="btn-text-gold" id="btn-toggle-level-helper">คำนวณจากเลเวล ▾</button>
+          </div>
+          <div class="mastery-input-wrap">
+            <input type="number" id="mastery-input" class="form-input text-center" min="0" max="3000" step="10" value="1000">
+            <span class="mastery-yield-pill" id="mastery-yield-display">เฉลี่ย 2.83 ขวด/รอบ</span>
+          </div>
+          <div class="mastery-presets">
+            <button type="button" class="preset-btn" data-mastery="0">0 (2.50x)</button>
+            <button type="button" class="preset-btn" data-mastery="500">500 (2.68x)</button>
+            <button type="button" class="preset-btn active" data-mastery="1000">1000 (2.83x)</button>
+            <button type="button" class="preset-btn" data-mastery="1500">1500 (3.02x)</button>
+            <button type="button" class="preset-btn" data-mastery="2000">2000 (3.25x)</button>
+            <button type="button" class="preset-btn" data-mastery="-1">สูตร 1:1</button>
+          </div>
+        </div>
+
+        <div class="control-actions">
+          <button type="button" class="btn btn-primary" id="btn-refresh-prices">
+            <span class="icon">🔄</span> รีเฟรชราคาตลาด
+          </button>
+          <button type="button" class="btn btn-danger" id="btn-clear-inventory">
+            <span class="icon">🧹</span> ล้างจำนวนในคลัง
+          </button>
+        </div>
+      </div>
+
+      <!-- Level & Gear Helper Drawer -->
+      <div id="level-helper-drawer" class="level-helper-drawer" style="display: none;">
+        <div class="drawer-header">
+          <span class="drawer-title">🧙‍♂️ ตัวช่วยคำนวณ Mastery จากระดับเลเวลและอุปกรณ์</span>
+          <button type="button" class="drawer-close-btn" id="btn-close-level-helper">✕</button>
+        </div>
+        <div class="drawer-content">
+          <div class="drawer-form-row">
+            <div class="drawer-field">
+              <label>ระดับการเล่นแร่แปรธาตุ (Level Tier):</label>
+              <select id="calc-level-tier" class="form-select">
+                <option value="beginner">Beginner (ผู้เริ่มต้น)</option>
+                <option value="apprentice">Apprentice (ฝึกหัด)</option>
+                <option value="skilled">Skilled (ชำนาญ)</option>
+                <option value="professional">Professional (เชี่ยวชาญ)</option>
+                <option value="artisan">Artisan (ช่าง)</option>
+                <option value="master">Master (คล่องแคล่ว)</option>
+                <option value="guru" selected>Guru (กูรู)</option>
+              </select>
+            </div>
+            <div class="drawer-field" style="width: 100px;">
+              <label>ระดับเลเวล:</label>
+              <input type="number" id="calc-level-num" class="form-input text-center" min="1" max="50" value="20">
+            </div>
+            <div class="drawer-field">
+              <label>เกรดอุปกรณ์ / ประดับไลฟ์สกิล:</label>
+              <select id="calc-gear-tier" class="form-select">
+                <option value="0">ไม่มีอุปกรณ์ (+0 Mastery)</option>
+                <option value="200">เซ็ตโรเกีย TRI / TET (+200)</option>
+                <option value="400">เซ็ตเกราโนอา TET (+400)</option>
+                <option value="650">เซ็ตมาโนส TRI (+650)</option>
+                <option value="900" selected>เซ็ตมาโนส TET (+900)</option>
+                <option value="1300">เซ็ตมาโนส PEN End-Game (+1,300)</option>
+              </select>
+            </div>
+          </div>
+          <div class="drawer-action-row">
+            <div class="drawer-estimate-text">
+              Mastery ประเมินรวม: <span id="calc-total-mastery-val" class="val-bold text-gold">1,500</span> 
+              <span class="text-muted" id="calc-yield-preview">(ผลผลิตเฉลี่ย 3.02 ขวด/รอบ)</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-apply-calculated-mastery">
+              ✓ นำค่า Mastery นี้ไปใช้
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Tax & Status Indicator -->
+      <div class="status-banner">
+        <div class="tax-rate-display">
+          <span class="badge-gold">ภาษีตลาด:</span>
+          <span id="tax-explanation" class="tax-text">ขายได้ 84.5% (มี Value Pack)</span>
+        </div>
+        <div class="api-status-display">
+          <span id="api-status-dot" class="status-dot green"></span>
+          <span id="api-status-text">ราคาตลาด: กำลังตรวจสอบ...</span>
+          <span id="api-cache-timer" class="cache-timer"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Error/Alert Banner -->
+    <div id="error-banner" class="alert-box alert-error" style="display: none;">
+      <span class="alert-icon">⚠️</span>
+      <div class="alert-content">
+        <div class="alert-title" id="error-title">เกิดข้อผิดพลาดในการดึงราคาตลาด</div>
+        <div class="alert-desc" id="error-desc">กำลังใช้ราคาแคชเดิม หรือสามารถกดรีเฟรชเพื่อลองใหม่</div>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline" id="btn-retry-error">ลองใหม่อีกครั้ง</button>
+    </div>
+
+    <!-- Main Dashboard KPI Cards -->
+    <section class="dashboard-grid">
+      <!-- Card 1: Finished Market Price -->
+      <div class="kpi-card card-finished">
+        <div class="card-header">
+          <span class="card-title">ราคาตลาดสำเร็จรูป</span>
+          <span class="badge badge-purple" id="kpi-finished-bottles">10 ขวด</span>
+        </div>
+        <div class="card-body">
+          <div class="kpi-main-val" id="kpi-finished-price">- Silver</div>
+          <div class="kpi-sub-row">
+            <span>ราคาต่อขวด:</span>
+            <span id="kpi-finished-unit-price" class="text-gold">- Silver</span>
+          </div>
+          <div class="kpi-sub-row">
+            <span>สต็อกในตลาด:</span>
+            <span id="kpi-finished-stock">- ชิ้น</span>
+          </div>
+          <div class="kpi-footer-metric highlight-green">
+            <span>รายรับสุทธิ (หลังภาษี):</span>
+            <span id="kpi-net-revenue" class="val-bold">- Silver</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Full Raw Cost -->
+      <div class="kpi-card card-raw-full">
+        <div class="card-header">
+          <span class="card-title">ต้นทุน Raw เต็ม (คลัง 0)</span>
+          <span class="badge badge-gray">ซื้อดิบ 100%</span>
+        </div>
+        <div class="card-body">
+          <div class="kpi-main-val text-red" id="kpi-full-raw-cost">- Silver</div>
+          <div class="kpi-sub-row">
+            <span>ต้นทุนเฉลี่ยต่อขวด:</span>
+            <span id="kpi-full-unit-cost" class="text-muted">- Silver</span>
+          </div>
+          <div class="kpi-sub-row">
+            <span>กำไรถ้าซื้อดิบ 100%:</span>
+            <span id="kpi-full-profit" class="val-bold">- Silver</span>
+          </div>
+          <div class="kpi-footer-metric">
+            <span>ROI ดิบเต็ม:</span>
+            <span id="kpi-full-roi">- %</span>
+          </div>
+          <div class="kpi-sub-row" style="margin-top: 8px; font-size: 0.8rem; color: var(--gold-bright);">
+            <span>ผลจาก Mastery:</span>
+            <span id="kpi-mastery-saved-text">ลดวัตถุดิบ 64.7%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Net Cost (After Inventory) - HERO CARD -->
+      <div class="kpi-card card-hero card-net-cost">
+        <div class="card-header">
+          <div class="hero-tag">จ่ายจริงตามคลัง</div>
+          <span class="card-title">ต้นทุนที่ต้องจ่ายเพิ่ม</span>
+          <span class="badge badge-gold" id="kpi-inventory-saved-badge">ประหยัดได้ -</span>
+        </div>
+        <div class="card-body">
+          <div class="kpi-main-val text-gold" id="kpi-net-raw-cost">- Silver</div>
+          <div class="kpi-sub-row">
+            <span>ประหยัดจากของในคลัง:</span>
+            <span id="kpi-saved-silver" class="text-green val-bold">- Silver</span>
+          </div>
+          <div class="kpi-sub-row">
+            <span>กำไรสุทธิตามของในคลัง:</span>
+            <span id="kpi-net-profit" class="val-bold text-green">- Silver</span>
+          </div>
+          <div class="kpi-footer-metric hero-metric">
+            <span>กำไรสุทธิ / 1 ขวด:</span>
+            <span id="kpi-profit-per-bottle" class="val-bold">- Silver</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Intermediate Cost (Buy Semi-finished) -->
+      <div class="kpi-card card-intermediate">
+        <div class="card-header">
+          <span class="card-title">ต้นทุนซื้อของกึ่งสำเร็จรูป</span>
+          <span class="badge badge-blue">ซื้อชั้นกลาง</span>
+        </div>
+        <div class="card-body">
+          <div class="kpi-main-val" id="kpi-intermediate-cost">- Silver</div>
+          <div class="kpi-sub-row">
+            <span>ซื้อ Harmony Draughts ตรง:</span>
+            <span id="kpi-opt-harmony-cost">- Silver</span>
+          </div>
+          <div class="kpi-sub-row">
+            <span>ซื้อ 5 Draughts ตรง:</span>
+            <span id="kpi-opt-draughts-cost">- Silver</span>
+          </div>
+          <div class="kpi-footer-metric">
+            <span>ซื้อ 22 Elixirs ตรง:</span>
+            <span id="kpi-opt-elixirs-cost">- Silver</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 5: Best Route Recommendation -->
+      <div class="kpi-card card-recommendation">
+        <div class="card-header">
+          <span class="card-title">สรุปทางเลือกที่คุ้มค่าที่สุด</span>
+          <span class="badge badge-gold" id="badge-recommendation">คำแนะนำ</span>
+        </div>
+        <div class="card-body">
+          <div class="rec-headline" id="rec-headline">กำลังคำนวณ...</div>
+          <p class="rec-desc" id="rec-desc">-</p>
+          <div class="rec-breakdown" id="rec-breakdown">
+            <!-- Dynamic comparison bars -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="content-tabs">
+      <button type="button" class="tab-btn active" data-tab="tab-raw">
+        📋 ตารางวัตถุดิบดิบ & คลัง (<span id="raw-count-badge">48</span> ชนิด)
+      </button>
+      <button type="button" class="tab-btn" data-tab="tab-intermediate">
+        🧪 เปรียบเทียบของกึ่งสำเร็จรูป (Draughts & Elixirs)
+      </button>
+      <button type="button" class="tab-btn" data-tab="tab-tree">
+        🌳 แผนผังสูตรคราฟต์ (Recipe Tree)
+      </button>
+      <button type="button" class="tab-btn" data-tab="tab-info">
+        📖 รายละเอียดสูตร & ภาษีตลาด
+      </button>
+    </nav>
+
+    <!-- TAB 1: Raw Materials Table -->
+    <section id="tab-raw" class="tab-content active">
+      <div class="table-toolbar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="raw-search" placeholder="ค้นหาชื่อวัตถุดิบ (ไทย/อังกฤษ) หรือ Item ID..." class="form-input">
+        </div>
+
+        <div class="filter-btn-group">
+          <button type="button" class="filter-btn active" data-filter="all">ทั้งหมด (<span id="filter-all-count">0</span>)</button>
+          <button type="button" class="filter-btn" data-filter="missing">ยังขาด (<span id="filter-missing-count">0</span>)</button>
+          <button type="button" class="filter-btn" data-filter="complete">ครบแล้ว (<span id="filter-complete-count">0</span>)</button>
+        </div>
+
+        <div class="quick-inventory-actions">
+          <button type="button" class="btn btn-sm btn-outline" id="btn-fill-all-stock" title="ใส่จำนวนในคลังให้ครบตามที่ต้องใช้ทุกชิ้น">
+            ✓ เติมคลังให้ครบ
+          </button>
+        </div>
+      </div>
+
+      <!-- Special Notice for Fruit & Trace Grouping -->
+      <div class="notice-pill">
+        <span class="pill-badge">ข้อกำหนดสูตร BDO</span>
+        <span>วัตถุดิบกลุ่ม <strong>Fruit ทั้งหมด</strong> ถูกรวบรวมเป็น <strong>Fruit of Nature (ผลไม้แห่งธรรมชาติ)</strong> และกลุ่ม <strong>Trace ทั้งหมด</strong> ถูกรวบรวมเป็น <strong>Trace of Nature (ร่องรอยแห่งธรรมชาติ)</strong> คิดราคาตลาดจริงตรงตามระบบเกม</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table" id="raw-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">สถานะ</th>
+              <th>ชื่อวัตถุดิบ (ไทย / อังกฤษ)</th>
+              <th style="width: 90px;">Item ID</th>
+              <th class="text-right" style="width: 110px;">ต้องใช้</th>
+              <th class="text-right" style="width: 150px;">มีในคลัง (กรอกได้)</th>
+              <th class="text-right" style="width: 110px;">ยังขาด</th>
+              <th class="text-right" style="width: 130px;">ราคาตลาด / ชิ้น</th>
+              <th class="text-right" style="width: 110px;">สต็อกตลาด</th>
+              <th class="text-right" style="width: 150px;">ต้องซื้อเพิ่ม (Silver)</th>
+              <th class="text-right" style="width: 90px;">% ต้นทุน</th>
+            </tr>
+          </thead>
+          <tbody id="raw-table-body">
+            <!-- Dynamically populated via app.js -->
+          </tbody>
+          <tfoot>
+            <tr class="table-total-row">
+              <td colspan="3" class="text-bold">รวมต้นทุนวัตถุดิบดิบทั้งหมด:</td>
+              <td class="text-right text-bold" id="total-mats-required">-</td>
+              <td class="text-right text-bold" id="total-mats-in-stock">-</td>
+              <td class="text-right text-bold" id="total-mats-missing">-</td>
+              <td colspan="2"></td>
+              <td class="text-right text-bold text-gold" id="total-cost-to-buy">- Silver</td>
+              <td class="text-right text-bold">100.0%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 2: Intermediate Items Table -->
+    <section id="tab-intermediate" class="tab-content">
+      <div class="section-intro">
+        <h3>วิเคราะห์เปรียบเทียบ: คราฟต์เอง vs ซื้อของกึ่งสำเร็จรูปในตลาด</h3>
+        <p>ตรวจสอบราคาตลาดของน้ำยา (Elixir) และน้ำยาเสริมกำลัง (Draught) เทียบกับต้นทุนวัตถุดิบดิบที่ใช้ เพื่อเลือกว่าชิ้นไหนควรคราฟต์เอง และชิ้นไหนซื้อตลาดคุ้มกว่า</p>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table" id="intermediate-table">
+          <thead>
+            <tr>
+              <th>ไอเท็มกึ่งสำเร็จรูป</th>
+              <th style="width: 90px;">Item ID</th>
+              <th class="text-right" style="width: 100px;">จำนวนที่ต้องใช้</th>
+              <th class="text-right" style="width: 140px;">ราคาตลาด / ชิ้น</th>
+              <th class="text-right" style="width: 110px;">สต็อกตลาด</th>
+              <th class="text-right" style="width: 150px;">ราคารวมในตลาด</th>
+              <th class="text-right" style="width: 150px;">ต้นทุนคราฟต์จาก Raw</th>
+              <th class="text-right" style="width: 130px;">ส่วนต่าง (คราฟต์ vs ซื้อ)</th>
+              <th class="text-center" style="width: 120px;">คำแนะนำ</th>
+            </tr>
+          </thead>
+          <tbody id="intermediate-table-body">
+            <!-- Populated via app.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 3: Interactive Recipe Tree -->
+    <section id="tab-tree" class="tab-content">
+      <div class="tree-header-controls">
+        <div class="section-intro">
+          <h3>แผนผังสูตรคราฟต์แบบสมบูรณ์ (Recursive Recipe Tree)</h3>
+          <p>แตกสูตรอย่างละเอียดตั้งแต่ [Party] Harmony Draught - Edania ลงไปจนถึงวัตถุดิบระดับรากหญ้า (Blood, Sap, Mushroom, Herb, Reagent, Oil, Catalyst)</p>
+        </div>
+        <div class="tree-btns">
+          <button type="button" class="btn btn-sm btn-outline" id="btn-tree-expand-all">➕ ขยายทั้งหมด</button>
+          <button type="button" class="btn btn-sm btn-outline" id="btn-tree-collapse-all">➖ ย่อทั้งหมด</button>
+        </div>
+      </div>
+
+      <div class="recipe-tree-container" id="recipe-tree-root">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- TAB 4: Info & Tax Documentation -->
+    <section id="tab-info" class="tab-content">
+      <div class="info-grid">
+        <div class="info-card">
+          <h4>💰 สูตรการคำนวณภาษีตลาดและการรับเงิน (Market Tax Formula)</h4>
+          <p>การซื้อของในตลาดกลางคิดต้นทุน <strong>100%</strong> เสมอ แต่การขายจะถูกหักภาษีตามบัฟที่ครอบครัวมี:</p>
+          <ul class="info-list">
+            <li><strong>ไม่มี Value Pack, ไม่มีแหวนพ่อค้า:</strong> ได้รับเงิน <code>65.000%</code> (ภาษีพื้นฐาน 35%)</li>
+            <li><strong>มี Value Pack อย่างเดียว:</strong> <code>65% × 1.30 = 84.500%</code></li>
+            <li><strong>มี Rich Merchant's Ring อย่างเดียว:</strong> <code>65% × 1.05 = 68.250%</code></li>
+            <li><strong>มีทั้ง Value Pack + Rich Merchant's Ring:</strong> <code>65% × 1.30 × 1.05 = 88.725%</code></li>
+          </ul>
+          <div class="info-note">
+            📌 <em>หมายเหตุ:</em> แหวนพ่อค้ามหาเศรษฐี (Rich Merchant's Ring) เป็นบัฟครอบครัวถาวร ไม่ต้องสวมใส่, ไม่ซ้อนทับกับใบแลกเปลี่ยนการค้าจันทร์เสี้ยว (Old Moon Trade Pass) และไม่ส่งผลต่อไอเท็มจาก Pearl Shop
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h4>🧪 โครงสร้างสูตร Simple Alchemy และแปรธาตุ</h4>
+          <ul class="info-list">
+            <li><strong>[Party] Harmony Draught - Edania x10 (ID 1407):</strong>
+              <ul>
+                <li>Harmony Draught x10 (ID 1399)</li>
+                <li>Elixir of Edania x30 (ID 1409)</li>
+                <li>Elixir of Will x30 (ID 702)</li>
+                <li>Spellbound Catalyst x10 (ID 820936)</li>
+                <li>Ibellab's Essence x1 (ID 4986)</li>
+              </ul>
+            </li>
+            <li><strong>Harmony Draught x10 (ID 1399):</strong>
+              <ul>
+                <li>Fury Draught x10 (ID 1389)</li>
+                <li>Adaptation Draught x10 (ID 1391)</li>
+                <li>Potential Draught x10 (ID 1393)</li>
+                <li>Corruption Draught x10 (ID 1395)</li>
+                <li>Berserk Draught x10 (ID 1397)</li>
+              </ul>
+            </li>
+            <li><strong>แต่ละ Draught x10:</strong> ใช้ Elixir 4 ชนิด ชนิดละ 30 ขวด + Spellbound Catalyst x10</li>
+            <li><strong>การรวบรวมหมวดหมู่:</strong> Fruit ทั้งหมดคิดราคาจาก <em>Fruit of Nature</em> และ Trace ทั้งหมดคิดราคาจาก <em>Trace of Nature</em></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>BDO Harmony Draught - Edania Cost Calculator • ดึงข้อมูลราคาผ่าน Arsha.io API</div>
+      <div class="footer-sub">ข้อมูลในคลังจะถูกบันทึกอัตโนมัติในเครื่องของคุณ (localStorage) ไม่สูญหายเมื่อรีโหลดหรือรีเฟรชราคา</div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
